@@ -12,4 +12,4 @@ MIT
 
 ## Author
 
-FUJIWARA Shunichiro <>
+fujiwara
