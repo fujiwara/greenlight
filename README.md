@@ -1,6 +1,6 @@
-# {{ .Project.Name }}
+# greenlight
 
-{{ .Project.Description }}
+greelight is a graceful health check agent.
 
 ## Usage
 
@@ -8,8 +8,8 @@ greenlight
 
 ## LICENSE
 
-{{ .Project.License }}
+MIT
 
 ## Author
 
-{{ .Project.Author.Name }} <{{ .Project.Author.Email }}>
+FUJIWARA Shunichiro <>
