@@ -4,7 +4,27 @@ greelight is a graceful health check agent.
 
 ## Usage
 
-greenlight
+greenlight works as a health check agent for your application.
+
+```console
+$ greenlight -c config.yml
+```
+
+greenlight checks your application's health by `startup` and `readiness` checks.
+
+### startup
+
+`startup` checks are executed when greenlight starts.
+
+All the checks are passed, and greenlight starts a responder http server that responds `200 OK` to `GET /` request.
+
+### readiness
+
+`readiness` checks are executed while the greenlight is running periodically.
+
+If some of the checks are failed, the responder http server and responds `503 Service Unavailable` to `GET /` request.
+
+If all the checks are passed, the responder http server responds `200 OK` to `GET /` request.
 
 ## Configuration
 
