@@ -4,7 +4,8 @@ import (
 	"context"
 	"log"
 
-	app "github.com/fujiwara/greenlight"
+	"github.com/alecthomas/kong"
+	"github.com/fujiwara/greenlight"
 )
 
 func main() {
@@ -15,5 +16,7 @@ func main() {
 }
 
 func run(ctx context.Context) error {
-	return app.Run(ctx)
+	var cli greenlight.CLI
+	kong.Parse(&cli)
+	return greenlight.Run(ctx, &cli)
 }
