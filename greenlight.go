@@ -3,7 +3,6 @@ package greenlight
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -19,9 +18,8 @@ type Greenlight struct {
 	ch              chan Signal
 }
 
-func Run(ctx context.Context) error {
-	fmt.Println("greenlight!")
-	cfg, err := LoadConfig(ctx, "examples/greenlight.yaml")
+func Run(ctx context.Context, cli *CLI) error {
+	cfg, err := LoadConfig(ctx, cli.Config)
 	if err != nil {
 		return err
 	}
