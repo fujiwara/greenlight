@@ -3,6 +3,7 @@ package greenlight
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -116,8 +117,9 @@ func (g *Greenlight) CheckStartUp(ctx context.Context) error {
 	ctx = context.WithValue(ctx, stateKey, g.state)
 	for i := g.state.CheckIndex; i < numofCheckers(len(g.startUpChecks)); i++ {
 		g.state.CheckIndex = numofCheckers(i)
-		if err := g.startUpChecks[i].Run(ctx); err != nil {
-			return err
+		check := g.startUpChecks[i]
+		if err := check.Run(ctx); err != nil {
+			return fmt.Errorf("check index:%d name:%s failed: %w", i, check.Name(), err)
 		}
 	}
 	return nil
@@ -155,7 +157,7 @@ func (g *Greenlight) CheckRediness(ctx context.Context) error {
 	for i, check := range g.readinessChecks {
 		g.state.CheckIndex = numofCheckers(i)
 		if err := check.Run(ctx); err != nil {
-			errs = errors.Join(errs, err)
+			errs = errors.Join(errs, fmt.Errorf("check %d failed: %w", i, err))
 		}
 	}
 	return errs

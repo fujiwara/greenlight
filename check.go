@@ -12,12 +12,14 @@ import (
 )
 
 type Checker interface {
+	Name() string
 	Run(ctx context.Context) error
 }
 
 type CommandChecker struct {
-	Commands []string
-	Timeout  time.Duration
+	name     string
+	commands []string
+	timeout  time.Duration
 }
 
 func NewCommandChecker(cfg *CheckConfig) (*CommandChecker, error) {
@@ -26,33 +28,38 @@ func NewCommandChecker(cfg *CheckConfig) (*CommandChecker, error) {
 		return nil, err
 	}
 	return &CommandChecker{
-		Commands: cmds,
-		Timeout:  cfg.Timeout,
+		name:     cfg.Name,
+		commands: cmds,
+		timeout:  cfg.Timeout,
 	}, nil
 }
 
+func (c *CommandChecker) Name() string {
+	return c.name
+}
+
 func (c *CommandChecker) Run(ctx context.Context) error {
-	ctx, cancel := context.WithTimeout(ctx, c.Timeout)
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 	state := ctx.Value(stateKey).(*State)
 	p, n := state.Phase, state.CheckIndex
 
-	log.Printf("[info] [phase %s] [index %d] running command: %s", p, n, c.Commands)
+	log.Printf("[info] [phase %s] [index %d] running command: %s", p, n, c.commands)
 	var cmd *exec.Cmd
-	switch len(c.Commands) {
+	switch len(c.commands) {
 	case 0:
 		return errors.New("no command")
 	case 1:
-		cmd = exec.CommandContext(ctx, c.Commands[0])
+		cmd = exec.CommandContext(ctx, c.commands[0])
 	default:
-		cmd = exec.CommandContext(ctx, c.Commands[0], c.Commands[1:]...)
+		cmd = exec.CommandContext(ctx, c.commands[0], c.commands[1:]...)
 	}
 	cmd.Env = append(cmd.Env, os.Environ()...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Printf("[info] [phase %s] [index %d] %s command failed: %s", p, n, out, err)
+		log.Printf("[info] [phase %s] [index %d] [name %s] %s command failed: %s", p, n, c.name, out, err)
 		return err
 	}
-	log.Printf("[info] [phase %s] [index %d] command succeeded: %s", p, n, string(out))
+	log.Printf("[info] [phase %s] [index %d] [name %s] command succeeded: %s", p, n, c.name, string(out))
 	return nil
 }
