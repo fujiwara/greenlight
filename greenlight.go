@@ -40,14 +40,14 @@ func NewGreenlight(cfg *Config) (*Greenlight, error) {
 		ch:        ch,
 	}
 	for _, c := range cfg.StartUp.Checks {
-		checker, err := NewCommandChecker(&c)
+		checker, err := NewChecker(&c)
 		if err != nil {
 			return nil, err
 		}
 		g.startUpChecks = append(g.startUpChecks, checker)
 	}
 	for _, c := range cfg.Readiness.Checks {
-		checker, err := NewCommandChecker(&c)
+		checker, err := NewChecker(&c)
 		if err != nil {
 			return nil, err
 		}

@@ -33,8 +33,10 @@ type PhaseConfig struct {
 
 type CheckConfig struct {
 	Name    string        `yaml:"name"`
-	Command string        `yaml:"command"`
 	Timeout time.Duration `yaml:"timeout"`
+
+	Command *CommandCheckConfig `yaml:"command"`
+	TCP     *TCPCheckConfig     `yaml:"tcp"`
 }
 
 func LoadConfig(ctx context.Context, path string) (*Config, error) {
