@@ -13,9 +13,7 @@ import (
 )
 
 var (
-	DefaultTCPTimeout         = 5 * time.Second
-	DefaultTCPMaxBytes        = 32 * 1024
-	DefaultTCPMetricKeyPrefix = "tcp"
+	DefaultTCPMaxBytes = 32 * 1024
 )
 
 type TCPCheckConfig struct {
