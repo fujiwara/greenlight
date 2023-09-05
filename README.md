@@ -10,13 +10,30 @@ greenlight
 
 ```yaml
 startup:
-  interval: 5s
   checks:
-    - command: "test -f pass"
-      timeout: 1s
-    - command: 'curl -s -o /dev/null -w "%{http_code}" http://localhost:3000'
-      timeout: 5s
-# TODO
+    - name: "memcached alive"
+      tcp:
+        host: "localhost"
+        port: 11211
+        send: "stats\n"
+        expect_pattern: "STAT uptime"
+        quit: "QUIT\n"
+    - name: "app server is up"
+      command:
+        run: 'curl -s -o /dev/null -w "%{http_code}" http://localhost:3000'
+    - &web
+      name: "web server is ok"
+      http:
+        url: "http://localhost:80/health"
+        expect_code: 200-399
+readiness:
+  checks:
+    - name: "pass file exists"
+      command:
+        run: "test -f pass"
+    - *web
+responder:
+  addr: ":8081"
 ```
 
 ## LICENSE
