@@ -3,7 +3,8 @@ package greenlight
 import (
 	"context"
 	"errors"
-	"log"
+	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"time"
@@ -40,10 +41,8 @@ func (c *CommandChecker) Name() string {
 func (c *CommandChecker) Run(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
-	state := ctx.Value(stateKey).(*State)
-	p, n := state.Phase, state.CheckIndex
-
-	log.Printf("[info] [phase %s] [index %d] running command: %s", p, n, c.commands)
+	logger := newLoggerFromContext(ctx).With("name", c.name, "module", "commandchecker")
+	logger.Debug("executing command", slog.String("commands", fmt.Sprintf("%v", c.commands)))
 	var cmd *exec.Cmd
 	switch len(c.commands) {
 	case 0:
@@ -56,9 +55,9 @@ func (c *CommandChecker) Run(ctx context.Context) error {
 	cmd.Env = append(cmd.Env, os.Environ()...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Printf("[info] [phase %s] [index %d] [name %s] %s command failed: %s", p, n, c.name, out, err)
+		logger.Info("command failed", slog.String("output", string(out)), slog.String("error", err.Error()))
 		return err
 	}
-	log.Printf("[info] [phase %s] [index %d] [name %s] command succeeded: %s", p, n, c.name, string(out))
+	logger.Debug("command succeeded", slog.String("output", string(out)))
 	return nil
 }

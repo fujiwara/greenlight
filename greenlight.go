@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"sync"
 	"time"
 )
@@ -20,10 +20,15 @@ type Greenlight struct {
 }
 
 func Run(ctx context.Context, cli *CLI) error {
+	if cli.Debug {
+		logLevel.Set(slog.LevelDebug)
+	}
+	slog.Info("starting greenlight")
 	cfg, err := LoadConfig(ctx, cli.Config)
 	if err != nil {
 		return err
 	}
+	slog.Info("config loaded", slog.String("config", cli.Config))
 	g, err := NewGreenlight(cfg)
 	if err != nil {
 		return err
@@ -88,9 +93,10 @@ func (g *Greenlight) Send(s Signal) {
 }
 
 func (g *Greenlight) RunStartUpChecks(ctx context.Context) error {
-	log.Printf("[info] [phase %s] start", g.state.Phase)
+	logger := slog.With("phase", g.state.Phase)
+	logger.Info("start phase")
 	if t := g.Config.StartUp.GracePeriod; t > 0 {
-		log.Printf("[info] [phase %s] sleeping grace period %s", g.state.Phase, t)
+		logger.Info(fmt.Sprintf("sleeping grace period %s", t))
 		time.Sleep(t)
 	}
 	for {
@@ -101,13 +107,14 @@ func (g *Greenlight) RunStartUpChecks(ctx context.Context) error {
 		}
 		err := g.CheckStartUp(ctx)
 		if err != nil {
-			log.Printf("[info] [phase %s] [index %d] checks failed: %s", g.state.Phase, g.state.CheckIndex, err)
-			log.Printf("[info] [phase %s] sleep %s", g.state.Phase, g.Config.StartUp.Interval)
+			logger.Info("checks failed",
+				slog.Int("index", int(g.state.CheckIndex)),
+				slog.String("error", err.Error()))
+			logger.Info(fmt.Sprintf("sleeping %s", g.Config.StartUp.Interval))
 			time.Sleep(g.Config.StartUp.Interval)
 		} else {
-			p := g.state.Phase
 			g.state.NextPhase()
-			log.Printf("[info] [phase %s] all checks succeeded! moving to next phase: %s", p, g.state.Phase)
+			logger.Info("all checks succeeded! go to next phase")
 			return nil
 		}
 	}
@@ -121,14 +128,16 @@ func (g *Greenlight) CheckStartUp(ctx context.Context) error {
 		if err := check.Run(ctx); err != nil {
 			return fmt.Errorf("check index:%d name:%s failed: %w", i, check.Name(), err)
 		}
+		slog.Info("check succeeded", slog.Int("index", int(i)), slog.String("name", check.Name()))
 	}
 	return nil
 }
 
 func (g *Greenlight) RunRedinessChecks(ctx context.Context) error {
-	log.Printf("[info] [phase %s] start", g.state.Phase)
+	logger := slog.With("phase", g.state.Phase)
+	logger.Info("start phase")
 	if t := g.Config.Readiness.GracePeriod; t > 0 {
-		log.Printf("[info] [phase %s] sleeping grace period %s", g.state.Phase, t)
+		logger.Info(fmt.Sprintf("sleeping grace period %s", t))
 		time.Sleep(t)
 	}
 	for {
@@ -139,10 +148,10 @@ func (g *Greenlight) RunRedinessChecks(ctx context.Context) error {
 		}
 		err := g.CheckRediness(ctx)
 		if err != nil {
-			log.Printf("[info] [phase %s] some checks failed: %s", g.state.Phase, err)
+			logger.Warn("some checks failed", slog.String("error", err.Error()))
 			g.Send(SignalYellow)
 		} else {
-			log.Printf("[info] [phase %s] all checks succeeded!", g.state.Phase)
+			logger.Debug("all checks succeeded!")
 			g.Send(SignalGreen)
 		}
 		time.Sleep(g.Config.Readiness.Interval)
@@ -151,6 +160,7 @@ func (g *Greenlight) RunRedinessChecks(ctx context.Context) error {
 
 func (g *Greenlight) CheckRediness(ctx context.Context) error {
 	ctx = context.WithValue(ctx, stateKey, g.state)
+	logger := slog.With("phase", g.state.Phase)
 
 	var errs error
 	// rediness checks allways run all.
@@ -159,6 +169,7 @@ func (g *Greenlight) CheckRediness(ctx context.Context) error {
 		if err := check.Run(ctx); err != nil {
 			errs = errors.Join(errs, fmt.Errorf("check %d failed: %w", i, err))
 		}
+		logger.Debug("check succeeded", slog.Int("index", int(i)), slog.String("name", check.Name()))
 	}
 	return errs
 }

@@ -1,14 +1,14 @@
 module github.com/fujiwara/greenlight
 
-go 1.20
+go 1.21
 
 require (
+	github.com/alecthomas/kong v0.8.0
 	github.com/goccy/go-yaml v1.11.0
 	github.com/mattn/go-shellwords v1.0.12
 )
 
 require (
-	github.com/alecthomas/kong v0.8.0 // indirect
 	github.com/fatih/color v1.10.0 // indirect
 	github.com/mattn/go-colorable v0.1.8 // indirect
 	github.com/mattn/go-isatty v0.0.12 // indirect

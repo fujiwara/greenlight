@@ -6,7 +6,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"regexp"
 	"time"
@@ -47,6 +46,7 @@ func (p *TCPChecker) Name() string {
 
 func NewTCPChecker(cfg *CheckConfig) (*TCPChecker, error) {
 	p := &TCPChecker{
+		name:               cfg.Name,
 		Timeout:            cfg.Timeout,
 		MaxBytes:           cfg.TCP.MaxBytes,
 		TLS:                cfg.TCP.TLS,
@@ -69,6 +69,7 @@ func NewTCPChecker(cfg *CheckConfig) (*TCPChecker, error) {
 }
 
 func (p *TCPChecker) Run(ctx context.Context) error {
+	logger := newLoggerFromContext(ctx).With("name", p.name, "module", "tcpchecker")
 	ctx, cancel := context.WithTimeout(ctx, p.Timeout)
 	defer cancel()
 
@@ -80,9 +81,9 @@ func (p *TCPChecker) Run(ctx context.Context) error {
 	defer conn.Close()
 	conn.SetDeadline(time.Now().Add(p.Timeout))
 
-	log.Println("[debug] connected", addr)
+	logger.Debug("connected " + addr)
 	if p.Send != "" {
-		log.Println("[debug] send", p.Send)
+		logger.Debug("send " + p.Send)
 		_, err := io.WriteString(conn, p.Send)
 		if err != nil {
 			return fmt.Errorf("tcp send failed: %w", err)
@@ -95,14 +96,14 @@ func (p *TCPChecker) Run(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("tcp read failed: %w", err)
 		}
-		log.Println("[debug] read", string(buf[:n]))
+		logger.Debug("read" + string(buf[:n]))
 
 		if !p.ExpectPattern.Match(buf[:n]) {
 			return fmt.Errorf("tcp unexpected response: %s", string(buf[:n]))
 		}
 	}
 	if p.Quit != "" {
-		log.Println("[debug]", p.Quit)
+		logger.Debug("quit " + p.Quit)
 		io.WriteString(conn, p.Quit)
 	}
 	return nil
