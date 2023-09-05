@@ -34,10 +34,10 @@ func NewCommandChecker(cfg *CheckConfig) (*CommandChecker, error) {
 func (c *CommandChecker) Run(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, c.Timeout)
 	defer cancel()
-	p := ctx.Value(phaseKey).(phase)
-	n := ctx.Value(numofCheckersKey).(numofCheckers)
+	state := ctx.Value(stateKey).(*State)
+	p, n := state.Phase, state.CheckIndex
 
-	log.Printf("[info] [phase %s] [%d] running command: %s", p, n, c.Commands)
+	log.Printf("[info] [phase %s] [index %d] running command: %s", p, n, c.Commands)
 	var cmd *exec.Cmd
 	switch len(c.Commands) {
 	case 0:
@@ -50,9 +50,9 @@ func (c *CommandChecker) Run(ctx context.Context) error {
 	cmd.Env = append(cmd.Env, os.Environ()...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Printf("[info] [phase %s] [%d] %s command failed: %s", p, n, out, err)
+		log.Printf("[info] [phase %s] [index %d] %s command failed: %s", p, n, out, err)
 		return err
 	}
-	log.Printf("[info] [phase %s] [%d] command succeeded: %s", p, n, string(out))
+	log.Printf("[info] [phase %s] [index %d] command succeeded: %s", p, n, string(out))
 	return nil
 }

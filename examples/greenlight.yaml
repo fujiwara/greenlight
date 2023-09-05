@@ -5,3 +5,13 @@ startup:
       timeout: 1s
     - command: 'curl -s -o /dev/null -w "%{http_code}" http://localhost:3000'
       timeout: 5s
+readiness:
+  grace_period: 3s
+  interval: 5s
+  checks:
+    - command: 'curl -s -o /dev/null -w "%{http_code}" http://localhost:3000'
+      timeout: 5s
+    - command: "test -f pass"
+      timeout: 1s
+responder:
+  addr: ":8081"

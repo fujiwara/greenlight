@@ -12,17 +12,23 @@ import (
 const (
 	DefaultCheckInterval = 5 * time.Second
 	DefaultCheckTimeout  = 5 * time.Second
+	DefaultListenAddr    = ":8080"
 )
 
 type Config struct {
-	StartUp   PhaseConfig `yaml:"startup"`
-	Readiness PhaseConfig `yaml:"readiness"`
+	Responder *ResponderConfig `yaml:"responder"`
+	StartUp   *PhaseConfig     `yaml:"startup"`
+	Readiness *PhaseConfig     `yaml:"readiness"`
+}
+
+type ResponderConfig struct {
+	Addr string `yaml:"addr"`
 }
 
 type PhaseConfig struct {
-	Checks   []CheckConfig `yaml:"checks"`
-	Interval time.Duration `yaml:"interval"`
-	Parallel bool          `yaml:"parallel"`
+	Checks      []CheckConfig `yaml:"checks"`
+	Interval    time.Duration `yaml:"interval"`
+	GracePeriod time.Duration `yaml:"grace_period"`
 }
 
 type CheckConfig struct {
@@ -33,13 +39,14 @@ type CheckConfig struct {
 
 func LoadConfig(ctx context.Context, path string) (*Config, error) {
 	config := &Config{
-		StartUp: PhaseConfig{
+		StartUp: &PhaseConfig{
 			Interval: DefaultCheckInterval,
-			Parallel: false,
 		},
-		Readiness: PhaseConfig{
+		Readiness: &PhaseConfig{
 			Interval: DefaultCheckInterval,
-			Parallel: false,
+		},
+		Responder: &ResponderConfig{
+			Addr: DefaultListenAddr,
 		},
 	}
 	f, err := os.Open(path)

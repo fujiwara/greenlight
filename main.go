@@ -2,22 +2,26 @@ package greenlight
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
+	"sync"
 	"time"
 )
 
 type Greenlight struct {
 	Config *Config
 
-	phase           phase
+	state           *State
 	startUpChecks   []Checker
 	readinessChecks []Checker
+	responder       *Responder
+	ch              chan Signal
 }
 
 func Run(ctx context.Context) error {
 	fmt.Println("greenlight!")
-	cfg, err := LoadConfig(ctx, "greenlight.yaml")
+	cfg, err := LoadConfig(ctx, "examples/greenlight.yaml")
 	if err != nil {
 		return err
 	}
@@ -29,9 +33,12 @@ func Run(ctx context.Context) error {
 }
 
 func NewGreenlight(cfg *Config) (*Greenlight, error) {
+	responder, ch := NewResponder(cfg.Responder)
 	g := &Greenlight{
-		Config: cfg,
-		phase:  phaseStartUp,
+		Config:    cfg,
+		state:     newState(),
+		responder: responder,
+		ch:        ch,
 	}
 	for _, c := range cfg.StartUp.Checks {
 		checker, err := NewCommandChecker(&c)
@@ -51,36 +58,107 @@ func NewGreenlight(cfg *Config) (*Greenlight, error) {
 }
 
 func (g *Greenlight) Run(ctx context.Context) error {
+	wg := &sync.WaitGroup{}
+	if err := g.RunStartUpChecks(ctx); err != nil {
+		return err
+	}
+
+	// StartUp succeeded. Signal green.
+	g.Send(SignalGreen)
+
+	// Run responder.
+	wg.Add(1)
+	go func(ctx context.Context) {
+		defer wg.Done()
+		if err := g.responder.Run(ctx); err != nil {
+			return
+		}
+	}(ctx)
+
+	// Run readiness checks.
+	if err := g.RunRedinessChecks(ctx); err != nil {
+		return err
+	}
+
+	wg.Wait()
+	return nil
+}
+
+func (g *Greenlight) Send(s Signal) {
+	g.ch <- s
+}
+
+func (g *Greenlight) RunStartUpChecks(ctx context.Context) error {
+	log.Printf("[info] [phase %s] start", g.state.Phase)
+	if t := g.Config.StartUp.GracePeriod; t > 0 {
+		log.Printf("[info] [phase %s] sleeping grace period %s", g.state.Phase, t)
+		time.Sleep(t)
+	}
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
 		default:
 		}
-		switch g.phase {
-		case phaseStartUp:
-			err := g.CheckStartUp(context.WithValue(ctx, phaseKey, g.phase))
-			if err != nil {
-				log.Printf("[info] [phase %s] checks failed: %s", g.phase, err)
-				log.Printf("[info] [phase %s] sleep %s", g.phase, g.Config.StartUp.Interval)
-				time.Sleep(g.Config.StartUp.Interval)
-			} else {
-				log.Printf("[info] [phase %s] all checks succeeded! moving to running phase", g.phase)
-				g.phase = phaseRunning
-			}
-		case phaseRunning:
-			log.Println("[info] TODO running checks. Goodbye!")
+		err := g.CheckStartUp(ctx)
+		if err != nil {
+			log.Printf("[info] [phase %s] [index %d] checks failed: %s", g.state.Phase, g.state.CheckIndex, err)
+			log.Printf("[info] [phase %s] sleep %s", g.state.Phase, g.Config.StartUp.Interval)
+			time.Sleep(g.Config.StartUp.Interval)
+		} else {
+			p := g.state.Phase
+			g.state.NextPhase()
+			log.Printf("[info] [phase %s] all checks succeeded! moving to next phase: %s", p, g.state.Phase)
 			return nil
 		}
 	}
 }
 
 func (g *Greenlight) CheckStartUp(ctx context.Context) error {
-	for i, checker := range g.startUpChecks {
-		err := checker.Run(context.WithValue(ctx, numofCheckersKey, numofCheckers(i)))
-		if err != nil {
+	ctx = context.WithValue(ctx, stateKey, g.state)
+	for i := g.state.CheckIndex; i < numofCheckers(len(g.startUpChecks)); i++ {
+		g.state.CheckIndex = numofCheckers(i)
+		if err := g.startUpChecks[i].Run(ctx); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (g *Greenlight) RunRedinessChecks(ctx context.Context) error {
+	log.Printf("[info] [phase %s] start", g.state.Phase)
+	if t := g.Config.Readiness.GracePeriod; t > 0 {
+		log.Printf("[info] [phase %s] sleeping grace period %s", g.state.Phase, t)
+		time.Sleep(t)
+	}
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+		}
+		err := g.CheckRediness(ctx)
+		if err != nil {
+			log.Printf("[info] [phase %s] some checks failed: %s", g.state.Phase, err)
+			g.Send(SignalYellow)
+		} else {
+			log.Printf("[info] [phase %s] all checks succeeded!", g.state.Phase)
+			g.Send(SignalGreen)
+		}
+		time.Sleep(g.Config.Readiness.Interval)
+	}
+}
+
+func (g *Greenlight) CheckRediness(ctx context.Context) error {
+	ctx = context.WithValue(ctx, stateKey, g.state)
+
+	var errs error
+	// rediness checks allways run all.
+	for i, check := range g.readinessChecks {
+		g.state.CheckIndex = numofCheckers(i)
+		if err := check.Run(ctx); err != nil {
+			errs = errors.Join(errs, err)
+		}
+	}
+	return errs
 }
