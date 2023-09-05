@@ -15,6 +15,8 @@ func NewChecker(cfg *CheckConfig) (Checker, error) {
 		return NewCommandChecker(cfg)
 	} else if cfg.TCP != nil {
 		return NewTCPChecker(cfg)
+	} else if cfg.HTTP != nil {
+		return NewHTTPChecker(cfg)
 	} else {
 		return nil, fmt.Errorf("invalid check config. command, tcp, or http section is required: %v", cfg)
 	}

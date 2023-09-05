@@ -10,13 +10,18 @@ startup:
       name: "app server is up"
       timeout: 5s
 readiness:
-  grace_period: 3s
   interval: 5s
   checks:
-    - name: "tcp 3000 is open"
+    - name: "memcached alive"
       tcp:
         host: "localhost"
-        port: 3000
-      timeout: 1s
+        port: 11211
+        send: "stats\n"
+        expect_pattern: "STAT uptime"
+        quit: "QUIT\n"
+    - name: "app server is ok"
+      http:
+        url: "http://localhost:3000/"
+        expect_code: 200-399
 responder:
   addr: ":8081"

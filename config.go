@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	DefaultCheckInterval = 5 * time.Second
+	DefaultCheckInterval = 6 * time.Second
 	DefaultCheckTimeout  = 5 * time.Second
 	DefaultListenAddr    = ":8080"
 )
@@ -26,9 +26,9 @@ type ResponderConfig struct {
 }
 
 type PhaseConfig struct {
-	Checks      []CheckConfig `yaml:"checks"`
-	Interval    time.Duration `yaml:"interval"`
-	GracePeriod time.Duration `yaml:"grace_period"`
+	Checks      []*CheckConfig `yaml:"checks"`
+	Interval    time.Duration  `yaml:"interval"`
+	GracePeriod time.Duration  `yaml:"grace_period"`
 }
 
 type CheckConfig struct {
@@ -37,6 +37,7 @@ type CheckConfig struct {
 
 	Command *CommandCheckConfig `yaml:"command"`
 	TCP     *TCPCheckConfig     `yaml:"tcp"`
+	HTTP    *HTTPCheckConfig    `yaml:"http"`
 }
 
 func LoadConfig(ctx context.Context, path string) (*Config, error) {

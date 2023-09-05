@@ -29,6 +29,7 @@ func Run(ctx context.Context, cli *CLI) error {
 		return err
 	}
 	slog.Info("config loaded", slog.String("config", cli.Config))
+	slog.Debug("config", "parsed", cfg)
 	g, err := NewGreenlight(cfg)
 	if err != nil {
 		return err
@@ -45,14 +46,14 @@ func NewGreenlight(cfg *Config) (*Greenlight, error) {
 		ch:        ch,
 	}
 	for _, c := range cfg.StartUp.Checks {
-		checker, err := NewChecker(&c)
+		checker, err := NewChecker(c)
 		if err != nil {
 			return nil, err
 		}
 		g.startUpChecks = append(g.startUpChecks, checker)
 	}
 	for _, c := range cfg.Readiness.Checks {
-		checker, err := NewChecker(&c)
+		checker, err := NewChecker(c)
 		if err != nil {
 			return nil, err
 		}
@@ -125,10 +126,15 @@ func (g *Greenlight) CheckStartUp(ctx context.Context) error {
 	for i := g.state.CheckIndex; i < numofCheckers(len(g.startUpChecks)); i++ {
 		g.state.CheckIndex = numofCheckers(i)
 		check := g.startUpChecks[i]
+		now := time.Now()
 		if err := check.Run(ctx); err != nil {
 			return fmt.Errorf("check index:%d name:%s failed: %w", i, check.Name(), err)
 		}
-		slog.Info("check succeeded", slog.Int("index", int(i)), slog.String("name", check.Name()))
+		elapsed := time.Since(now)
+		slog.Info("check succeeded",
+			slog.Int("index", int(i)), slog.String("name", check.Name()),
+			slog.String("elapsed", elapsed.String()),
+		)
 	}
 	return nil
 }
@@ -166,10 +172,15 @@ func (g *Greenlight) CheckRediness(ctx context.Context) error {
 	// rediness checks allways run all.
 	for i, check := range g.readinessChecks {
 		g.state.CheckIndex = numofCheckers(i)
+		now := time.Now()
 		if err := check.Run(ctx); err != nil {
 			errs = errors.Join(errs, fmt.Errorf("check %d failed: %w", i, err))
 		}
-		logger.Debug("check succeeded", slog.Int("index", int(i)), slog.String("name", check.Name()))
+		elapsed := time.Since(now)
+		logger.Debug("check succeeded",
+			slog.Int("index", int(i)), slog.String("name", check.Name()),
+			slog.String("elapsed", elapsed.String()),
+		)
 	}
 	return errs
 }
