@@ -28,7 +28,7 @@ docker-build-and-push:
 	docker buildx build \
 		--build-arg version=${LATEST_TAG} \
 		--platform=linux/amd64,linux/arm64 \
-		-t ghcr.io/fujiwara/greenlight:${LATEST_TAG}-$* \
+		-t ghcr.io/fujiwara/greenlight:${LATEST_TAG} \
 		-f Dockerfile \
 		--push \
 		.
