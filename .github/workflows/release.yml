@@ -1,5 +1,9 @@
 name: release
 
+permissions:
+  packages: write
+  contents: write
+
 on:
   push:
     branches:
