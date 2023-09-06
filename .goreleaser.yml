@@ -6,6 +6,9 @@ builds:
       - CGO_ENABLED=0
     main: cmd/greenlight/main.go
     binary: greenlight
+    ldflags:
+      - -s -w
+      - -X main.Version=v{{.Version}}
     goos:
       - linux
       - darwin

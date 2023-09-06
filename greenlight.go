@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+var Version = ""
+
 type Greenlight struct {
 	Config *Config
 
@@ -20,10 +22,15 @@ type Greenlight struct {
 }
 
 func Run(ctx context.Context, cli *CLI) error {
+	if cli.Version {
+		fmt.Println(Version)
+		return nil
+	}
+
 	if cli.Debug {
 		logLevel.Set(slog.LevelDebug)
 	}
-	slog.Info("starting greenlight")
+	slog.Info(fmt.Sprintf("starting greenlight version %s", Version))
 	cfg, err := LoadConfig(ctx, cli.Config)
 	if err != nil {
 		return err
