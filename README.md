@@ -14,7 +14,7 @@ greenlight checks your application's health by `startup` and `readiness` checks.
 
 ### startup
 
-`startup` checks are executed when greenlight starts.
+`startup` checks are executed at greenlight starts.
 
 All the checks are passed, and greenlight starts a responder http server that responds `200 OK` to `GET /` request.
 
