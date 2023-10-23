@@ -38,11 +38,11 @@ $ brew install fujiwara/tap/greenlight
 [ghcr.io/ghcr.io/fujiwara/greenlight](https://github.com/fujiwara/greenlight/pkgs/container/greenlight)
 
 ```console
-docker pull ghcr.io/fujiwara/greenlight:v0.0.4
+docker pull ghcr.io/fujiwara/greenlight:v0.0.5
 ```
 
 ```Dockerfile
-FROM ghcr.io/fujiwara/greenlight:v0.0.4 AS greenlight
+FROM ghcr.io/fujiwara/greenlight:v0.0.5 AS greenlight
 
 FROM debian:bookworm-slim
 COPY --from=greenlight /usr/local/bin/greenlight /usr/local/bin/greenlight
