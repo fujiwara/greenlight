@@ -35,7 +35,7 @@ $ brew install fujiwara/tap/greenlight
 
 ### Docker images
 
-[ghcr.io/ghcr.io/fujiwara/greenlight](https://github.com/fujiwara/greenlight/pkgs/container/greenlight)
+[ghcr.io/fujiwara/greenlight](https://github.com/fujiwara/greenlight/pkgs/container/greenlight)
 
 ```console
 docker pull ghcr.io/fujiwara/greenlight:v0.0.5
