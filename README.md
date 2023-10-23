@@ -21,6 +21,36 @@ greenlight works as a health check agent for your application.
 
 greenlight checks your application's health by `startup` and `readiness` checks.
 
+## Install
+
+### Homebrew
+
+```console
+$ brew install fujiwara/tap/greenlight
+```
+
+### Binary
+
+[Releases](https://github.com/fujiwara/greenlight/releases)
+
+### Docker images
+
+[ghcr.io/ghcr.io/fujiwara/greenlight](https://github.com/fujiwara/greenlight/pkgs/container/greenlight)
+
+```console
+docker pull ghcr.io/fujiwara/greenlight:v0.0.4
+```
+
+```Dockerfile
+FROM ghcr.io/fujiwara/greenlight:v0.0.4 AS greenlight
+
+FROM debian:bookworm-slim
+COPY --from=greenlight /usr/local/bin/greenlight /usr/local/bin/greenlight
+COPY greenlight.yaml /etc/greenlight.yaml
+ENV GREENLIGHT_CONFIG=/etc/greenlight.yaml
+CMD ["/usr/local/bin/greenlight", "--", "/path/to/your/app"]
+```
+
 ## Spawn a child processe
 
 greenlight can spawn a child process (optional).
