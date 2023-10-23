@@ -101,7 +101,7 @@ func (p *HTTPChecker) Run(ctx context.Context) error {
 		req.Header.Set(name, value)
 	}
 	req.Header.Set("Connection", "close") // do not keep alive to health check.
-	req.Header.Set("User-Agent", "greenlight")
+	req.Header.Set("User-Agent", "greenlight/"+Version)
 
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: p.NoCheckCertificate},
