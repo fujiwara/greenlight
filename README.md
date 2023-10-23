@@ -35,6 +35,10 @@ When greenlight catch a signal (SIGTERM and SIGINT), greenlight sends SIGTERM to
 
 STDOUT and STDERR of the child process are redirected to greenlight's STDOUT and STDERR.
 
+## Health checks
+
+greenlight checks your application's health by `startup` and `readiness` checks.
+
 ### startup
 
 Startup checks are executed at greenlight starts.
