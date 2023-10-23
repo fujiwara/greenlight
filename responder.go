@@ -28,6 +28,7 @@ func NewResponder(cfg *ResponderConfig) (*Responder, chan Signal) {
 
 func (r *Responder) Run(ctx context.Context) error {
 	r.logger.Info("starting responder")
+	defer r.logger.Info("responder exited")
 	srv := http.Server{
 		Addr:    r.addr,
 		Handler: r.handler(),
@@ -39,7 +40,11 @@ func (r *Responder) Run(ctx context.Context) error {
 	go r.signalLisetener(ctx)
 
 	r.logger.Info(fmt.Sprintf("listening on %s", r.addr))
-	return srv.ListenAndServe()
+	if err := srv.ListenAndServe(); err != nil {
+		r.logger.Error("failed to listen and serve", slog.String("error", err.Error()))
+		return err
+	}
+	return nil
 }
 
 func (r *Responder) setCurrentSignal(s Signal) {

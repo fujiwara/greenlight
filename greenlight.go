@@ -8,7 +8,10 @@ import (
 	"os"
 	"os/exec"
 	"sync"
+	"syscall"
 	"time"
+
+	"github.com/Songmu/wrapcommander"
 )
 
 var Version = ""
@@ -29,6 +32,9 @@ func Run(ctx context.Context, cli *CLI) error {
 		fmt.Println(Version)
 		return nil
 	}
+	defer func() {
+		slog.Info("greenlight exited")
+	}()
 
 	if cli.Debug {
 		logLevel.Set(slog.LevelDebug)
@@ -111,14 +117,16 @@ func (g *Greenlight) Run(ctx context.Context) error {
 
 	// Wait for readiness checks or responder or child command.
 	select {
-	case err := <-redinessErr:
+	case <-redinessErr:
+		break // rediness never returns error.
+	case err := <-responderErr:
 		if err != nil {
 			return err
 		}
-	case err := <-responderErr:
-		return err
 	case err := <-childCommandErr:
-		return err
+		if err != nil {
+			return err
+		}
 	}
 
 	wg.Wait()
@@ -132,7 +140,7 @@ func (g *Greenlight) Send(s Signal) {
 func (g *Greenlight) RunStartUpChecks(ctx context.Context, wg *sync.WaitGroup, ch chan error) {
 	defer wg.Done()
 	logger := slog.With("phase", g.state.Phase)
-	logger.Info("start phase")
+	logger.Info("starting checks for startup")
 	if t := g.Config.StartUp.GracePeriod; t > 0 {
 		logger.Info(fmt.Sprintf("sleeping grace period %s", t))
 		time.Sleep(t)
@@ -151,12 +159,12 @@ func (g *Greenlight) RunStartUpChecks(ctx context.Context, wg *sync.WaitGroup, c
 				slog.String("error", err.Error()))
 			logger.Info(fmt.Sprintf("sleeping %s", g.Config.StartUp.Interval))
 			time.Sleep(g.Config.StartUp.Interval)
-		} else {
-			g.state.NextPhase()
-			logger.Info("all checks succeeded! go to next phase")
-			ch <- nil
-			return
+			continue
 		}
+		g.state.NextPhase()
+		logger.Info("all checks succeeded! go to next phase")
+		ch <- nil
+		return
 	}
 }
 
@@ -181,18 +189,12 @@ func (g *Greenlight) CheckStartUp(ctx context.Context) error {
 func (g *Greenlight) RunRedinessChecks(ctx context.Context, wg *sync.WaitGroup, ch chan error) {
 	defer wg.Done()
 	logger := slog.With("phase", g.state.Phase)
-	logger.Info("start phase")
+	logger.Info("starting checks for readiness")
 	if t := g.Config.Readiness.GracePeriod; t > 0 {
 		logger.Info(fmt.Sprintf("sleeping grace period %s", t))
 		time.Sleep(t)
 	}
 	for {
-		select {
-		case <-ctx.Done():
-			ch <- nil
-			return
-		default:
-		}
 		err := g.CheckRediness(ctx)
 		if err != nil {
 			logger.Warn("some checks failed", slog.String("error", err.Error()))
@@ -201,7 +203,12 @@ func (g *Greenlight) RunRedinessChecks(ctx context.Context, wg *sync.WaitGroup, 
 			logger.Debug("all checks succeeded!")
 			g.Send(SignalGreen)
 		}
-		time.Sleep(g.Config.Readiness.Interval)
+		select {
+		case <-time.After(g.Config.Readiness.Interval):
+		case <-ctx.Done():
+			ch <- nil
+			return
+		}
 	}
 }
 
@@ -239,14 +246,32 @@ func (g *Greenlight) RunChildCommand(ctx context.Context, wg *sync.WaitGroup, ch
 	if len(commands) == 0 {
 		return
 	}
-	// TODO graceful shutdown
-	slog.Info("starting child command", slog.String("command", fmt.Sprintf("%v", commands)))
+	logger := newLoggerFromContext(ctx).With(
+		"module", "childcommand",
+		"commands", fmt.Sprintf("%v", commands),
+	)
+
+	var ignoreExitError bool
+	logger.Info("starting child command")
 	cmd := exec.CommandContext(ctx, commands[0], commands[1:]...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		slog.Error("child command failed", slog.String("error", err.Error()))
+	cmd.Cancel = func() error {
+		logger.Info("sending SIGTERM to child command")
+		ignoreExitError = true
+		return cmd.Process.Signal(syscall.SIGTERM)
+	}
+	cmd.WaitDelay = 30 * time.Second // TODO: configurable
+
+	err := cmd.Run()
+	if err != nil && !ignoreExitError {
+		exitCode := wrapcommander.ResolveExitCode(err)
+		logger.Error("child command failed",
+			slog.String("error", err.Error()),
+			slog.Int("exit_code", exitCode),
+		)
 		ch <- err
+		return
 	}
 	ch <- fmt.Errorf("child command exited: %s", cmd.ProcessState.String())
 }
