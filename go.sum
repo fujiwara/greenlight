@@ -1,3 +1,5 @@
+github.com/Songmu/wrapcommander v0.1.0 h1:y8/yk9/PHT983weH+ehZIOJ7JtwAlI1AkfUpUNCj1SY=
+github.com/Songmu/wrapcommander v0.1.0/go.mod h1:EC2y4OnN8PkdMnaCwcSzItewq+f0yqUvS30kcS4vmn0=
 github.com/alecthomas/assert/v2 v2.1.0 h1:tbredtNcQnoSd3QBhQWI7QZ3XHOVkw1Moklp2ojoH/0=
 github.com/alecthomas/assert/v2 v2.1.0/go.mod h1:b/+1DI2Q6NckYi+3mXyH3wFb8qG37K/DuK80n7WefXA=
 github.com/alecthomas/kong v0.8.0 h1:ryDCzutfIqJPnNn0omnrgHLbAggDQM2VWHikE1xqK7s=
