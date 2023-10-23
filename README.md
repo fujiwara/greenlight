@@ -51,7 +51,7 @@ ENV GREENLIGHT_CONFIG=/etc/greenlight.yaml
 CMD ["/usr/local/bin/greenlight", "--", "/path/to/your/app"]
 ```
 
-## Spawn a child processe
+## Spawn a child process
 
 greenlight can spawn a child process (optional).
 
