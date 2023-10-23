@@ -5,8 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
+	"os/exec"
 	"sync"
+	"syscall"
 	"time"
+
+	"github.com/Songmu/wrapcommander"
 )
 
 var Version = ""
@@ -19,6 +24,7 @@ type Greenlight struct {
 	readinessChecks []Checker
 	responder       *Responder
 	ch              chan Signal
+	childCmds       []string
 }
 
 func Run(ctx context.Context, cli *CLI) error {
@@ -26,6 +32,9 @@ func Run(ctx context.Context, cli *CLI) error {
 		fmt.Println(Version)
 		return nil
 	}
+	defer func() {
+		slog.Info("greenlight exited")
+	}()
 
 	if cli.Debug {
 		logLevel.Set(slog.LevelDebug)
@@ -41,6 +50,7 @@ func Run(ctx context.Context, cli *CLI) error {
 	if err != nil {
 		return err
 	}
+	g.childCmds = cli.ChildCmds
 	return g.Run(ctx)
 }
 
@@ -71,7 +81,24 @@ func NewGreenlight(cfg *Config) (*Greenlight, error) {
 
 func (g *Greenlight) Run(ctx context.Context) error {
 	wg := &sync.WaitGroup{}
-	if err := g.RunStartUpChecks(ctx); err != nil {
+
+	// Run external command. (optional)
+	childCommandErr := make(chan error, 1)
+	wg.Add(1)
+	go g.RunChildCommand(ctx, wg, childCommandErr)
+
+	// Run startup checks.
+	startUpErr := make(chan error, 1)
+	wg.Add(1)
+	go g.RunStartUpChecks(ctx, wg, startUpErr)
+
+	// Wait for startup checks or child command.
+	select {
+	case err := <-startUpErr:
+		if err != nil {
+			return err
+		}
+	case err := <-childCommandErr:
 		return err
 	}
 
@@ -79,17 +106,27 @@ func (g *Greenlight) Run(ctx context.Context) error {
 	g.Send(SignalGreen)
 
 	// Run responder.
+	responderErr := make(chan error, 1)
 	wg.Add(1)
-	go func(ctx context.Context) {
-		defer wg.Done()
-		if err := g.responder.Run(ctx); err != nil {
-			return
-		}
-	}(ctx)
+	go g.RunResponder(ctx, wg, responderErr)
 
 	// Run readiness checks.
-	if err := g.RunRedinessChecks(ctx); err != nil {
-		return err
+	redinessErr := make(chan error, 1)
+	wg.Add(1)
+	go g.RunRedinessChecks(ctx, wg, redinessErr)
+
+	// Wait for readiness checks or responder or child command.
+	select {
+	case <-redinessErr:
+		break // rediness never returns error.
+	case err := <-responderErr:
+		if err != nil {
+			return err
+		}
+	case err := <-childCommandErr:
+		if err != nil {
+			return err
+		}
 	}
 
 	wg.Wait()
@@ -100,9 +137,10 @@ func (g *Greenlight) Send(s Signal) {
 	g.ch <- s
 }
 
-func (g *Greenlight) RunStartUpChecks(ctx context.Context) error {
+func (g *Greenlight) RunStartUpChecks(ctx context.Context, wg *sync.WaitGroup, ch chan error) {
+	defer wg.Done()
 	logger := slog.With("phase", g.state.Phase)
-	logger.Info("start phase")
+	logger.Info("starting checks for startup")
 	if t := g.Config.StartUp.GracePeriod; t > 0 {
 		logger.Info(fmt.Sprintf("sleeping grace period %s", t))
 		time.Sleep(t)
@@ -110,7 +148,8 @@ func (g *Greenlight) RunStartUpChecks(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return nil
+			ch <- nil
+			return
 		default:
 		}
 		err := g.CheckStartUp(ctx)
@@ -120,11 +159,12 @@ func (g *Greenlight) RunStartUpChecks(ctx context.Context) error {
 				slog.String("error", err.Error()))
 			logger.Info(fmt.Sprintf("sleeping %s", g.Config.StartUp.Interval))
 			time.Sleep(g.Config.StartUp.Interval)
-		} else {
-			g.state.NextPhase()
-			logger.Info("all checks succeeded! go to next phase")
-			return nil
+			continue
 		}
+		g.state.NextPhase()
+		logger.Info("all checks succeeded! go to next phase")
+		ch <- nil
+		return
 	}
 }
 
@@ -146,19 +186,15 @@ func (g *Greenlight) CheckStartUp(ctx context.Context) error {
 	return nil
 }
 
-func (g *Greenlight) RunRedinessChecks(ctx context.Context) error {
+func (g *Greenlight) RunRedinessChecks(ctx context.Context, wg *sync.WaitGroup, ch chan error) {
+	defer wg.Done()
 	logger := slog.With("phase", g.state.Phase)
-	logger.Info("start phase")
+	logger.Info("starting checks for readiness")
 	if t := g.Config.Readiness.GracePeriod; t > 0 {
 		logger.Info(fmt.Sprintf("sleeping grace period %s", t))
 		time.Sleep(t)
 	}
 	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		default:
-		}
 		err := g.CheckRediness(ctx)
 		if err != nil {
 			logger.Warn("some checks failed", slog.String("error", err.Error()))
@@ -167,7 +203,12 @@ func (g *Greenlight) RunRedinessChecks(ctx context.Context) error {
 			logger.Debug("all checks succeeded!")
 			g.Send(SignalGreen)
 		}
-		time.Sleep(g.Config.Readiness.Interval)
+		select {
+		case <-time.After(g.Config.Readiness.Interval):
+		case <-ctx.Done():
+			ch <- nil
+			return
+		}
 	}
 }
 
@@ -190,4 +231,47 @@ func (g *Greenlight) CheckRediness(ctx context.Context) error {
 		)
 	}
 	return errs
+}
+
+func (g *Greenlight) RunResponder(ctx context.Context, wg *sync.WaitGroup, ch chan error) {
+	defer wg.Done()
+	if err := g.responder.Run(ctx); err != nil {
+		ch <- err
+	}
+}
+
+func (g *Greenlight) RunChildCommand(ctx context.Context, wg *sync.WaitGroup, ch chan error) {
+	defer wg.Done()
+	commands := g.childCmds
+	if len(commands) == 0 {
+		return
+	}
+	logger := newLoggerFromContext(ctx).With(
+		"module", "childcommand",
+		"commands", fmt.Sprintf("%v", commands),
+	)
+
+	var ignoreExitError bool
+	logger.Info("starting child command")
+	cmd := exec.CommandContext(ctx, commands[0], commands[1:]...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Cancel = func() error {
+		logger.Info("sending SIGTERM to child command")
+		ignoreExitError = true
+		return cmd.Process.Signal(syscall.SIGTERM)
+	}
+	cmd.WaitDelay = 30 * time.Second // TODO: configurable
+
+	err := cmd.Run()
+	if err != nil && !ignoreExitError {
+		exitCode := wrapcommander.ResolveExitCode(err)
+		logger.Error("child command failed",
+			slog.String("error", err.Error()),
+			slog.Int("exit_code", exitCode),
+		)
+		ch <- err
+		return
+	}
+	ch <- fmt.Errorf("child command exited: %s", cmd.ProcessState.String())
 }

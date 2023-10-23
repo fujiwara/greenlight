@@ -3,6 +3,7 @@ module github.com/fujiwara/greenlight
 go 1.21
 
 require (
+	github.com/Songmu/wrapcommander v0.1.0
 	github.com/alecthomas/kong v0.8.0
 	github.com/aws/aws-sdk-go-v2/config v1.18.39
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.38.5

@@ -5,12 +5,14 @@ greelight is a graceful health check agent.
 ## Usage
 
 ```
-Usage: greenlight --config="greenlight.yaml"
+Usage: greenlight --config="greenlight.yaml" [<child-cmds> ...]
+
+Arguments:
+  [<child-cmds> ...]
 
 Flags:
   -h, --help                        Show context-sensitive help.
-  -c, --config="greenlight.yaml"    config file path or URL(http,https,file,s3)
-                                    ($GREENLIGHT_CONFIG)
+  -c, --config="greenlight.yaml"    config file path or URL(http,https,file,s3) ($GREENLIGHT_CONFIG)
   -d, --debug                       debug mode ($GREENLIGHT_DEBUG)
       --version                     show version
 ```
@@ -18,6 +20,20 @@ Flags:
 greenlight works as a health check agent for your application.
 
 greenlight checks your application's health by `startup` and `readiness` checks.
+
+## Spawn a child processe
+
+greenlight can spawn a child process (optional).
+
+```conosole
+$ greenlight --config=greenlight.yaml -- /path/to/your/app
+```
+
+greenlight spawns a child process at first.
+
+When greenlight catch a signal (SIGTERM and SIGINT), greenlight sends SIGTERM to the child process, and waits for the child process to exit. If the child process does not exit in 30 seconds, greenlight sends SIGKILL to the child process.
+
+STDOUT and STDERR of the child process are redirected to greenlight's STDOUT and STDERR.
 
 ### startup
 

@@ -1,4 +1,5 @@
 startup:
+  grace_period: 3s
   checks:
     - name: "memcached alive"
       tcp:
@@ -9,11 +10,11 @@ startup:
         quit: "QUIT\n"
     - name: "app server is up"
       command:
-        run: 'curl -s -o /dev/null -w "%{http_code}" http://localhost:3000'
+        run: 'curl -s -o /dev/null -w "%{http_code}" http://localhost:8000'
     - &web
       name: "web server is ok"
       http:
-        url: "http://localhost:80/"
+        url: "http://localhost:8000/"
         expect_code: 200-399
 readiness:
   checks:
