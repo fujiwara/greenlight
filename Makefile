@@ -26,8 +26,8 @@ dist:
 
 Dockerfile:
 	cat Dockerfile.build > Dockerfile
-	echo "" >> Dockerfile
-	perl -pe 's{^FROM.*}{FROM $(BASE_IMAGE)}' Dockerfile.target >> Dockerfile
+	echo "FROM $(BASE_IMAGE)" >> Dockerfile
+	cat Dockerfile.target >> Dockerfile
 
 docker-build-and-push: Dockerfile
 	go mod vendor
@@ -36,4 +36,5 @@ docker-build-and-push: Dockerfile
 		--platform=linux/amd64,linux/arm64 \
 		-t ghcr.io/fujiwara/greenlight:${LATEST_TAG}${IMAGE_SUFFIX} \
 		-f Dockerfile \
+		--push \
 		.
