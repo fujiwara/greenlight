@@ -1,5 +1,3 @@
-FROM scratch
-
 LABEL maintainer "fujiwara <fujiwara.shunichiro@gmail.com>"
 COPY --from=build /opt/greenlight /opt/greenlight
 WORKDIR /opt/greenlight
