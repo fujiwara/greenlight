@@ -50,4 +50,15 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: release image
         run: |
+          make clean
           make docker-build-and-push
+        env:
+          BASE_IMAGE: debian:bookworm-slim
+          IMAGE_SUFFIX: ""
+      - name: release image distroless
+        run: |
+          make clean
+          make docker-build-and-push
+        env:
+          BASE_IMAGE: gcr.io/distroless/static-debian12
+          IMAGE_SUFFIX: "-distroless"

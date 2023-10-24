@@ -1,0 +1,8 @@
+FROM scratch
+
+LABEL maintainer "fujiwara <fujiwara.shunichiro@gmail.com>"
+COPY --from=build /opt/greenlight /opt/greenlight
+WORKDIR /opt/greenlight
+ENV GREENLIGHT_CONFIG=/opt/greenlight/greenlight.yaml
+ENV GREENLIGHT_DEBUG=false
+ENTRYPOINT ["/opt/greenlight/bin/greenlight"]
