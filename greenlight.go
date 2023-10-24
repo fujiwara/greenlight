@@ -156,6 +156,7 @@ func (g *Greenlight) RunStartUpChecks(ctx context.Context, wg *sync.WaitGroup, c
 		if err != nil {
 			logger.Info("checks failed",
 				slog.Int("index", int(g.state.CheckIndex)),
+				slog.String("name", g.startUpChecks[g.state.CheckIndex].Name()),
 				slog.String("error", err.Error()))
 			logger.Info(fmt.Sprintf("sleeping %s", g.Config.StartUp.Interval))
 			time.Sleep(g.Config.StartUp.Interval)
@@ -175,7 +176,7 @@ func (g *Greenlight) CheckStartUp(ctx context.Context) error {
 		check := g.startUpChecks[i]
 		now := time.Now()
 		if err := check.Run(ctx); err != nil {
-			return fmt.Errorf("check index:%d name:%s failed: %w", i, check.Name(), err)
+			return err
 		}
 		elapsed := time.Since(now)
 		slog.Info("check succeeded",

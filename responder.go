@@ -96,6 +96,7 @@ func (r *Responder) handler() http.Handler {
 		}()
 
 		w.Header().Set("Content-Type", "text/plain")
+		w.Header().Set("Server", "greenlight/"+Version)
 		s := r.getCurrentSignal()
 		switch s {
 		case SignalGreen:
