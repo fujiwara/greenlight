@@ -73,6 +73,10 @@ greenlight checks your application's health by `startup` and `readiness` checks.
 
 Startup checks are executed at greenlight starts.
 
+This pharse is for checking the application is started and ready to serve requests.
+
+You should check all applications and middlewares are started and ready to serve requests.
+
 All the checks are passed, and greenlight starts a responder http server that responds `200 OK` to `GET /` request.
 
 Startup checks are executed in a defined order in the configuration file. If some check fails, greenlight retries the check until the check is passed.
@@ -80,6 +84,12 @@ Startup checks are executed in a defined order in the configuration file. If som
 ### readiness
 
 Readiness checks are executed periodically while the greenlight is running.
+
+This pharse is for checking the application is still alive.
+
+An application may be in a state that it can't serve requests. For example, the application is in a state that it can't connect to a database server temporarily. In this case, the application will recover after a while. Readiness checks should not be failed.
+
+You should check only the application itself is alive.
 
 If some checks fail, the responder returns `503 Service Unavailable` to `GET /` request.
 
@@ -149,10 +159,10 @@ See [Check](#check) section.
   interval: 10s # default 5s
   grace_period: 10s # default 0
   checks:
-    - name: "app server alive"
+    - name: "web server alive"
       timeout: 10s # default 5s
       http:
-        url: "http://localhost:3000/health"
+        url: "http://localhost/"
         method: "GET" # default "GET"
         headers:
           Host: "example.com"
